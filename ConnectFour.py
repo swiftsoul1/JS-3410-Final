@@ -9,6 +9,7 @@ import numpy as np
 import pygame
 import sys
 import math
+from functools import lru_cache
 
 BLUE = (0, 0, 255)
 BLACK = (0, 0, 0)
@@ -20,8 +21,11 @@ COLUMN_COUNT = 7
 
 
 def create_board():
-    board = np.zeros((ROW_COUNT, COLUMN_COUNT))
-    return board
+    b = []
+    for r in range(ROW_COUNT):
+        b.append([0] * COLUMN_COUNT)
+    #b = np.zeros((ROW_COUNT, COLUMN_COUNT))
+    return b
 
 
 def drop_piece(board, row, col, piece):
@@ -175,35 +179,56 @@ def evaluate(board, player, opponent):
                 elif board[r][c] == opponent:
                     return -10
     return 0
-    # check down diagonal
 
+@lru_cache
 def minimax(board, depth, is_max, player, opponent):
-    score = evaluate(board, player, opponent)
+    #
+    m_board = []
+    b = [board[i:i+COLUMN_COUNT] for i in range(0, len(board), COLUMN_COUNT)]
+    t = []
+    for s in b:
+        for i in s:
+            t.append(int(i))
+        m_board.append(t)
+        t = []
 
+    print("m--------------")
+    print_board(m_board)
+    score = evaluate(m_board, player, opponent)
     if abs(score) == 10:
         return score
-    if winning_move(board, player):
+    if winning_move(m_board, player):
         return 0
     if is_max:
         best = -1000
         for col in range(COLUMN_COUNT):
-            if is_valid_location(board, col):
-                row = get_next_open_row(board, col)
-                board[row-1][col-1] = player
-                best = max(best, minimax(board, depth+1, not is_max, player, opponent))
-                board[row - 1][col - 1] = 0
+            if is_valid_location(m_board, col):
+                row = get_next_open_row(m_board, col)
+                m_board[row-1][col-1] = player
+                n_board = ""
+                for r in range(ROW_COUNT):
+                    for c in range(COLUMN_COUNT):
+                        t = m_board[r][c]
+                        n_board += str(t)
+                best = max(best, minimax(n_board, depth+1, not is_max, player, opponent))
+                m_board[row - 1][col - 1] = 0
         return best
     else:
         best = 1000
         for col in range(COLUMN_COUNT):
-            if is_valid_location(board, col):
-                row = get_next_open_row(board, col)
-                board[row-1][col-1] = player
-                best = max(best, minimax(board, depth+1, not is_max, player, opponent))
-                board[row - 1][col - 1] = 0
+            if is_valid_location(m_board, col):
+                row = get_next_open_row(m_board, col)
+                m_board[row-1][col-1] = player
+                n_board = ""
+                for r in range(ROW_COUNT):
+                    for c in range(COLUMN_COUNT):
+                        t = m_board[r][c]
+                        n_board += str(t)
+                best = max(best, minimax(n_board, depth+1, not is_max, player, opponent))
+                m_board[row - 1][col - 1] = 0
         return best
 
-def computer_move(piece, oppon):
+def computer_move(board, piece, oppon):
     global game_over
     best_val = -1000
     best_move = (-3, -3)
@@ -211,12 +236,20 @@ def computer_move(piece, oppon):
         if is_valid_location(board, col):
             row = get_next_open_row(board, col)
             board[row][col] = piece
-            move_val = minimax(board, 0, False, piece, oppon)
+            m_board = ""
+            for r in range(ROW_COUNT):
+                for c in range(COLUMN_COUNT):
+                    t = board[r][c]
+                    t = str(t)
+                    m_board +=  t
+            print("C--------------")
+            print(m_board)
+            move_val = minimax(m_board, 0, False, piece, oppon)
             board[row][col] = 0
             if move_val > best_val:
                 best_move = (row, col)
                 best_val = move_val
-    drop_piece(board, best_move[0], best_val[1], 2)
+    drop_piece(board, best_move[0], best_val[1], piece)
     if winning_move(board, piece):
         label = myfont.render("Player " + piece + " wins!!", 1, (200, 9, 250))
         screen.blit(label, (40, 10))
@@ -224,12 +257,18 @@ def computer_move(piece, oppon):
 
 
 def main():
-    global game_over, turn
+    global game_over, turn, board
+    drop_piece(board, 0, 0, 2)
+    drop_piece(board, 0, 1, 2)
+    drop_piece(board, 0, 2, 2)
+    print_board(board)
+    draw_board(board)
+    pygame.display.update()
     while not game_over:
         if turn == 0:
-            computer_move(1, 2)
+            computer_move(board, 1, 2)
         else:
-            computer_move(2, 1)
+            computer_move(board, 2, 1)
         print_board(board)
         draw_board(board)
         pygame.display.update()
